@@ -119,3 +119,78 @@ dependencies {
 - Spring Boot도 자체 BOM 내장 (그래서 `spring-boot-starter-*`는 버전 안 씀)
 
 **기억 포인트:** Spring AI 쓸 때 BOM 먼저 선언, 이후 의존성은 버전 생략.
+
+---
+
+## 2026-05-14
+
+### Q. Spring Boot는 .env 파일을 자동으로 읽지 않는데, 로컬 환경변수를 어떻게 주입하는가?
+
+**A.** Spring Boot 외부화 설정 우선순위: OS 환경변수 > JVM 시스템 프로퍼티 > application.yml.
+`.env`는 표준이 아니므로 직접 OS에 export되어야 Spring이 읽는다.
+
+**방법 4가지:**
+
+1. **spring-dotenv 라이브러리** — `.env`를 Spring Environment에 자동 등록. 코드 변경 없이 가장 깔끔.
+   ```kotlin
+   // build.gradle.kts
+   implementation("me.paulschwarz:spring-dotenv:4.0.0")
+   ```
+
+2. **쉘에서 export 후 실행** — 라이브러리 의존성 없음. 터미널 세션 종료 시 사라짐.
+   ```bash
+   set -a; source .env; set +a; ./gradlew bootRun
+   ```
+
+3. **IntelliJ Run Configuration** — Edit Configurations → Environment variables에 직접 입력 또는 EnvFile 플러그인으로 .env 파일 연결.
+
+4. **application-local.yml** — 값 직접 작성 후 `.gitignore`에 추가. Profile로 분리.
+   ```bash
+   ./gradlew bootRun --args='--spring.profiles.active=local'
+   ```
+
+**기억 포인트:** `.env`는 OS에 export되어야 Spring이 읽는다. `spring-dotenv`가 그 과정을 자동화해줌.
+
+---
+
+### Q. spring.jpa.open-in-view가 뭐야?
+
+**A.** HTTP 요청 전체 생명주기 동안 DB 커넥션을 열어두는 옵션. 기본값 `true`.
+
+**문제점:**
+- Controller/View에서 Lazy Loading이 가능해짐 → Service 레이어 밖에서 DB 쿼리가 실행되는 안티패턴 허용
+- 커넥션 풀을 오래 점유 → 트래픽 많을 때 커넥션 부족
+
+**false로 설정하면:**
+- Service 레이어 트랜잭션 안에서만 DB 접근 강제
+- Controller에서 Lazy Loading 시 `LazyInitializationException` 발생 → 실수 런타임에 빠르게 발견
+
+**기억 포인트:** REST API 서버는 View가 없으므로 `false`가 맞다. `true`는 Thymeleaf 같은 서버사이드 렌더링용 레거시 설정.
+
+---
+
+### Q. SpringDoc OpenAPI(Swagger) 어노테이션은 어떻게 작동해?
+
+**A.** 앱 시작 시 SpringDoc이 `@RestController`를 스캔해서 OpenAPI JSON을 자동 생성. Swagger UI가 그 JSON을 시각화.
+
+**주요 어노테이션:**
+
+| 어노테이션 | 위치 | 역할 |
+|---|---|---|
+| `@Tag` | 클래스 | API 그룹 이름 (사이드바 카테고리) |
+| `@Operation` | 메서드 | 엔드포인트 요약 설명 |
+| `@Parameter` | 파라미터 | 파라미터 설명 |
+| `@ApiResponse` | 메서드 | 응답 코드별 설명 |
+| `@Schema` | DTO 필드 | 필드 설명, 예시값 |
+
+**동작 원리:**
+1. 앱 시작 시 SpringDoc이 `@RestController` 클래스 스캔
+2. 어노테이션 + 메서드 시그니처로 OpenAPI JSON 자동 생성
+3. `/api-docs`로 JSON 노출 → Swagger UI(`/swagger-ui.html`)가 렌더링
+
+**어노테이션 없어도 자동 감지되는 것:**
+- URL, HTTP 메서드 (`@GetMapping`, `@PostMapping` 등)
+- 요청/응답 바디 타입 (제네릭 포함)
+- `@Valid` + `@NotBlank` 등 유효성 규칙
+
+**기억 포인트:** 어노테이션은 "설명 추가"용. 없어도 기본 문서는 자동 생성됨.

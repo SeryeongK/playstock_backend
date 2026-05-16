@@ -4,23 +4,39 @@
 일반 투자자가 유튜브 채널의 광고 수익을 조각 단위로 투자하고, 월 배당을 받는 플랫폼.
 
 ## 컨텍스트 (중요)
-- **개발자 배경:** PHP 풀스택 → Java 풀스택 전환 중. Java/Spring 기초 있음, 깊이는 학습 중.
+- **개발자 배경:** PHP 풀스택 → Java/Spring 기초 있음, 깊이는 학습 중.
 - **개발 기간:** 2025-05-11 ~ 2025-05-25 (15일)
 - **목표:** 플로우 완성 우선. 시간 남으면 사기 탐지 깊이.
-- **트랙:** 디지털 금융 (정보 격차 해소 / 사기 예방 / 금융 접근성)
 - **참가:** 핀테크 해커톤 (핀넥트 2026)
 
 ## 도메인 용어 (절대 바꾸지 말 것)
 - **Channel** — 거래 대상 유튜브 채널
 - **Share** — 채널의 조각 (주식 X, "조각" 통일)
 - **Holding** — 사용자가 보유한 채널별 조각
-- **Order** — 매수 주문 (MVP는 1차 발행만)
-- **Trade** — 체결된 거래
+- **Order** — 구매 (쇼핑몰 모델, 매칭 X)
 - **Dividend** — 월 배당
 - **FraudReport** — 사기 탐지 리포트
 - **Reservation** — 결제 선점 (구조만 잡고 락은 나중)
-- **Creator** — 채널을 등록하는 유저 (크리에이터)
-- **Investor** — 조각을 매수하는 유저 (투자자)
+- **Creator** — 채널을 등록하고 가격/수량 설정하는 유저 (판매자)
+- **Investor** — 조각을 구매하는 유저 (구매자)
+
+## 비즈니스 모델 (중요)
+**수익 분배형 증권 (Revenue Share Note) 모델**:
+- 크리에이터가 일정 기간 동안 광고 수익의 N%를 배당하기로 약정
+- 투자자는 그 권리를 구매 → 만기까지 보유, 매월 배당 수령
+- 만기 도래 시 권리 자동 소멸 (배당 종료)
+- 영구 소유권 X (주식 아님), 원금 보장 X (채권 아님)
+- **유사 모델:** 뮤직카우(음악 저작권), Royalty Exchange
+
+**MVP 단계 거래 구조 (쇼핑몰):**
+- 크리에이터가 가격/총 발행량/기간/배당율 설정 → 등록
+- 투자자는 정찰제로 구매만 가능 (가격 변동 X)
+- 사용자 간 매칭 거래 없음 (자본시장법 리스크 회피)
+- V2 확장 시 2차 거래는 orders 테이블 확장으로 처리 예정
+
+**법적 포지셔닝:**
+- MVP는 가상 포인트로 자본시장법 우회
+- 실서비스 시 조각투자 가이드라인 (2023.4 발표) 준수 검토 필요
 
 ## 유저 타입
 - 한 사람이 Creator + Investor 동시 가능 (user_type을 한 컬럼이 아닌 권한 플래그로)
@@ -58,7 +74,7 @@ com.finnect
 ├─ channel        # 채널 등록, 조회
 ├─ valuation      # AI 가치평가
 ├─ fraud          # 사기 탐지 (L1 룰 + L2 LLM)
-├─ trading        # 매수, 보유, 결제 선점
+├─ trading        # 구매, 보유, 결제 선점 (쇼핑몰 모델)
 ├─ dividend       # 월 배당
 ├─ notification   # 알림
 ├─ common         # 공통 (예외, DTO, 유틸)
@@ -102,6 +118,192 @@ com.finnect
 - **권장 테스트:** 거래 매칭, 배당 계산, AI 호출 Mock
 - **선택 테스트:** Controller 통합 테스트 (시간 남을 때)
 - 테스트 코드 비율이 이력서에서 평가되므로 핵심 도메인은 반드시 작성
+
+## 비즈니스 정책 (로직 결정 사항)
+
+### 배당 정책
+- **기준일:** 매월 1일 00:00 (KST) 시점의 holdings 기준
+- **배당 대상:** status=ACTIVE & 만기 안 지난 채널만
+- **계산:** total_amount = 추정 월수익 × dividend_rate, per_share = total_amount / total_shares
+- **만기 도래 시:** 해당 월부터 dividend 생성 안 함
+
+### 만기 처리
+- **트리거:** 매일 자정 스케줄러
+- **조건:** rights_end_at < NOW() AND status = ACTIVE
+- **액션:** status=EXPIRED, 보유자에게 만기 알림, 이후 배당 계산 제외
+- **holdings 보존:** 만기 후에도 holdings 행 유지, UI에서 "만기 종료" 표시
+
+### 활동성 모니터링 (채널 비활성)
+- **트리거:** 매일 자정 스케줄러, channel_metrics.last_upload_at 기준
+- **30일 비활성:** warning_level=30, 크리에이터에게 알림
+- **60일 비활성:** warning_level=60, 보유자 전체에게 경고 알림
+- **90일 비활성:** warning_level=90, **status=SUSPENDED, 배당 중단**
+- **복귀:** 다시 업로드 시 warning_level=NULL, status=ACTIVE (수동 또는 자동 검토)
+
+### 환불 정책 (orders.status=REFUNDED)
+- **자동 환불 케이스:**
+  - share_reservation 만료 (결제 미완료) → 자동 잔여 반환
+- **수동 환불 케이스 (운영 정책):**
+  - 등록 후 사기 채널 판정 시 (fraud_reports HIGH)
+  - 시스템 오류로 인한 중복 결제
+- **환불 시:** users.point_balance 복원, channels.sold_shares 차감, holdings.shares 차감
+
+### 사기 탐지 결과 반영
+- **등록 시:** HIGH → status=SUSPENDED, 등록 차단
+- **주간 재검사 시:**
+  - HIGH 진입: 보유자에게 RISK_CHANGED 알림, 배당 계산 보류 (운영 판단)
+  - LOW로 복귀: 자동 ACTIVE 복귀
+
+## ERD (테이블 설계)
+
+```
+users
+├─ id (BIGSERIAL PK)
+├─ email (VARCHAR UNIQUE)
+├─ nickname (VARCHAR)
+├─ password_hash (VARCHAR)
+├─ role (VARCHAR) — INVESTOR / CREATOR / ADMIN
+├─ point_balance (BIGINT)
+└─ created_at (TIMESTAMP)
+
+channels
+├─ id (BIGSERIAL PK)
+├─ youtube_channel_id (VARCHAR UNIQUE)
+├─ creator_id (FK → users)
+├─ name (VARCHAR)
+├─ category (VARCHAR) — FINANCE / TECH / LIFESTYLE / ENTERTAINMENT
+├─ thumbnail_url (TEXT)
+├─ status (VARCHAR) — PENDING / ACTIVE / SOLD_OUT / EXPIRED / SUSPENDED
+├─ tier (VARCHAR) — BRONZE / SILVER / GOLD
+├─ total_shares (INT)                   -- 크리에이터가 설정한 총 발행량
+├─ sold_shares (INT)                    -- 판매 완료
+├─ reserved_shares (INT)                -- 선점 중 (결제 진행)
+├─ price (INT)                          -- 크리에이터가 설정한 단가 (정찰제)
+├─ duration_months (INT)                -- 권리 기간 (12 / 24 / 36 등)
+├─ dividend_rate (DECIMAL)              -- 광고수익 중 배당 비율 (0.20 = 20%)
+├─ rights_start_at (TIMESTAMP)          -- 권리 시작일 (등록 승인 시점)
+├─ rights_end_at (TIMESTAMP)            -- 만기일 (start + duration_months)
+├─ warning_level (INT) — NULL(정상) / 30 / 60 / 90 (비활성 일수)
+├─ warning_triggered_at (TIMESTAMP)
+└─ created_at (TIMESTAMP)
+
+channel_metrics (시계열 누적, 주1회)
+├─ id (BIGSERIAL PK)
+├─ channel_id (FK → channels)
+├─ subscriber_count (BIGINT)
+├─ avg_view_count (BIGINT)
+├─ avg_likes (BIGINT)
+├─ avg_comments (BIGINT)
+├─ upload_count_30d (INT)
+├─ last_upload_at (TIMESTAMP)
+└─ snapshot_at (TIMESTAMP)
+
+channel_valuations (재평가 시 새 row 추가)
+├─ id (BIGSERIAL PK)
+├─ channel_id (FK → channels)
+├─ [AI 가치평가]
+├─ score (INT 0~100)
+├─ tier (VARCHAR) — BRONZE / SILVER / GOLD
+├─ estimated_revenue (BIGINT)
+├─ channel_value (BIGINT)
+├─ multiple (DECIMAL)
+├─ ai_reasoning (JSONB)
+├─ [L1 정량 지표 스냅샷]
+├─ subscriber_count_at_eval (BIGINT)
+├─ avg_view_count_at_eval (BIGINT)
+├─ active_rate (DECIMAL)               -- Rule 1: 구독자 대비 조회수 비율
+├─ engagement_rate (DECIMAL)           -- Rule 4: (좋아요+댓글)/조회수
+├─ subscriber_growth_rate (DECIMAL)    -- Rule 2: 30일 구독자 증가율
+├─ repetitive_comment_rate (DECIMAL)   -- Rule 2: 댓글 반복 비율
+├─ sub4sub_detected (BOOLEAN)          -- Rule 3: Sub4Sub 키워드 감지
+├─ [카테고리 상대 비교]
+├─ active_rate_vs_category (DECIMAL)   -- 카테고리 평균 대비 활동률 %
+├─ engagement_rate_vs_category (DECIMAL) -- 카테고리 평균 대비 참여율 %
+└─ evaluated_at (TIMESTAMP)
+
+fraud_reports (매주 새 row 추가, 이력 보존)
+├─ id (BIGSERIAL PK)
+├─ channel_id (FK → channels)
+├─ risk_level (VARCHAR) — HIGH / MEDIUM / LOW
+├─ l1_signals (JSONB)
+├─ l2_analysis (JSONB)
+├─ evidence (TEXT)
+├─ recommendation (VARCHAR)
+└─ detected_at (TIMESTAMP)
+
+category_benchmarks (카테고리 평균, 일1회 재계산)
+├─ category (VARCHAR PK)
+├─ avg_active_rate (DECIMAL)
+├─ avg_engagement_rate (DECIMAL)
+├─ sample_count (INT)
+└─ updated_at (TIMESTAMP)
+
+share_reservations
+├─ id (BIGSERIAL PK)
+├─ user_id (FK → users)
+├─ channel_id (FK → channels)
+├─ quantity (INT)
+├─ reserved_at (TIMESTAMP)
+├─ expires_at (TIMESTAMP)
+└─ status (VARCHAR) — ACTIVE / CONFIRMED / EXPIRED / CANCELLED
+
+orders (쇼핑몰 모델 - 구매 기록)
+├─ id (BIGSERIAL PK)
+├─ user_id (FK → users)                 -- 구매자
+├─ channel_id (FK → channels)
+├─ reservation_id (FK → share_reservations, NULLABLE)
+├─ quantity (INT)
+├─ price (INT)                          -- 구매 시점 단가 (스냅샷)
+├─ total_amount (BIGINT)                -- quantity × price
+├─ status (VARCHAR) — PENDING / PAID / CANCELLED / REFUNDED
+├─ paid_at (TIMESTAMP)
+└─ created_at (TIMESTAMP)
+
+holdings
+├─ id (BIGSERIAL PK)
+├─ user_id (FK → users)
+├─ channel_id (FK → channels)
+├─ shares (INT)
+├─ avg_price (INT)
+├─ updated_at (TIMESTAMP)
+└─ UNIQUE (user_id, channel_id)
+
+dividends
+├─ id (BIGSERIAL PK)
+├─ channel_id (FK → channels)
+├─ period (VARCHAR) — YYYYMM
+├─ total_amount (BIGINT)
+├─ per_share (BIGINT)
+├─ status (VARCHAR) — PENDING / PAID / FAILED
+└─ paid_at (TIMESTAMP)
+
+dividend_payouts
+├─ id (BIGSERIAL PK)
+├─ dividend_id (FK → dividends)
+├─ user_id (FK → users)
+├─ shares_at_record (INT)
+├─ amount (BIGINT)
+└─ paid_at (TIMESTAMP)
+
+notifications
+├─ id (BIGSERIAL PK)
+├─ user_id (FK → users)
+├─ type (VARCHAR) — DIVIDEND_PAID / RISK_CHANGED / INACTIVE_WARNING
+├─ payload (JSONB)
+├─ read_at (TIMESTAMP)
+└─ created_at (TIMESTAMP)
+```
+
+## DB 마이그레이션 정책
+
+- **도구:** Flyway
+- **위치:** `src/main/resources/db/migration/V{N}__{설명}.sql`
+- **규칙:**
+  - 한 번 적용된 파일 절대 수정 금지 → 새 파일로 추가
+  - 로컬: `ddl-auto: create-drop` (재시작 시 깔끔)
+  - 운영(Render): `ddl-auto: validate` + Flyway 자동 실행
+- **의존성:** `flyway-core` + `flyway-database-postgresql`
+- **90일 DB 교체 시:** 새 DB + 환경변수만 교체 → Flyway가 스키마 자동 재적용
 
 ## 동시성 정책 (MVP)
 - **결정:** TBD-005에 따라 MVP에서는 동시성 처리 안 함
@@ -178,7 +380,7 @@ CodeRabbit이 자동으로 PR마다 코드 리뷰 코멘트 작성.
 설정: `.coderabbit.yaml` (한국어, 도메인 규칙 적용)
 설치: https://github.com/marketplace/coderabbitai (public 레포 무료)
 
-## 시연 시나리오 (5/22 작업)
+## 시연 시나리오
 1. 회원가입 → 유저 타입 선택 (크리에이터 / 투자자)
 2. 크리에이터: YouTube 채널 연결 → AI 심사 → 승인 → 조각 판매 등록
 3. 투자자: 채널 리스트 → 채널 상세 (AI 평가 + 사기 탐지 결과 노출) → 매수 → 결제 완료

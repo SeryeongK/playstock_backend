@@ -22,6 +22,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("org.postgresql:postgresql")
 
+    // Flyway
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
     // Validation
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
@@ -30,6 +34,17 @@ dependencies {
 
     // SpringDoc OpenAPI (Swagger UI)
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8")
+
+    // Security
+    implementation("org.springframework.boot:spring-boot-starter-security")
+
+    // JWT
+    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+
+    // .env 자동 로드
+    implementation("me.paulschwarz:spring-dotenv:4.0.0")
 
     // Lombok
     compileOnly("org.projectlombok:lombok")

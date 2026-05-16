@@ -85,3 +85,28 @@ throw new PlaystockException(ErrorCode.CHANNEL_NOT_FOUND);
 **관련 프로젝트 코드:** `ErrorCode.java`, `GlobalExceptionHandler.java`
 
 **기억 포인트:** 에러 정보는 enum에 집중. 흩어지면 유지보수 지옥.
+
+---
+
+## 2026-05-16
+
+### Q. 정적 팩토리 메서드(static factory method)가 뭐야? 왜 생성자 대신 써?
+
+**A.** `new User()` 대신 `User.create(email, nickname, ...)` 형태로 객체를 생성하는 패턴.
+
+```java
+// 생성자 방식
+User user = new User(email, nickname, passwordHash, role);
+
+// 정적 팩토리 메서드 방식
+User user = User.create(email, nickname, passwordHash, role);
+```
+
+장점:
+1. 이름을 붙여 의도 명시 (`create`, `of`, `from` 등)
+2. `@Setter` 없이 필드 초기화 → 불변 객체 유지 가능
+3. 생성 로직을 클래스 내부에 캡슐화
+
+**관련 프로젝트 코드:** `User.java` — `@Setter` 금지 규칙 때문에 엔티티 생성에 정적 팩토리 메서드 사용
+
+**기억 포인트:** `@Setter` 금지 + 생성자 의도 명확화 = 정적 팩토리 메서드 조합.
