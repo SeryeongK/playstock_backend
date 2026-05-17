@@ -21,6 +21,8 @@ public enum ErrorCode {
 
     // Channel
     CHANNEL_NOT_FOUND(HttpStatus.NOT_FOUND, "CHANNEL_NOT_FOUND", "채널을 찾을 수 없습니다"),
+    DUPLICATE_CHANNEL(HttpStatus.CONFLICT, "DUPLICATE_CHANNEL", "이미 등록된 채널입니다"),
+    YOUTUBE_CHANNEL_NOT_FOUND(HttpStatus.NOT_FOUND, "YOUTUBE_CHANNEL_NOT_FOUND", "YouTube에서 채널을 찾을 수 없습니다"),
 
     // Trading
     INSUFFICIENT_SHARES(HttpStatus.BAD_REQUEST, "INSUFFICIENT_SHARES", "잔여 조각이 부족합니다");
