@@ -1,0 +1,17 @@
+.git/
+.idea/
+.gradle/
+build/
+out/
+.env
+.env.local
+application-local.yml
+application-secret.yml
+*.key
+*.pem
+.DS_Store
+gradle.properties
+.claude/
+docs/
+README.md
+LICENSE
