@@ -25,7 +25,15 @@ public enum ErrorCode {
     YOUTUBE_CHANNEL_NOT_FOUND(HttpStatus.NOT_FOUND, "YOUTUBE_CHANNEL_NOT_FOUND", "YouTube에서 채널을 찾을 수 없습니다"),
 
     // Trading
-    INSUFFICIENT_SHARES(HttpStatus.BAD_REQUEST, "INSUFFICIENT_SHARES", "잔여 조각이 부족합니다");
+    INSUFFICIENT_SHARES(HttpStatus.BAD_REQUEST, "INSUFFICIENT_SHARES", "잔여 조각이 부족합니다"),
+
+    // OAuth
+    OAUTH_INVALID_STATE(HttpStatus.BAD_REQUEST, "OAUTH_INVALID_STATE", "유효하지 않은 OAuth state입니다"),
+    OAUTH_TOKEN_EXCHANGE_FAILED(HttpStatus.BAD_GATEWAY, "OAUTH_TOKEN_EXCHANGE_FAILED", "Google 토큰 발급에 실패했습니다"),
+    OAUTH_TOKEN_REFRESH_FAILED(HttpStatus.BAD_GATEWAY, "OAUTH_TOKEN_REFRESH_FAILED", "Google 토큰 갱신에 실패했습니다"),
+    OAUTH_NOT_CONNECTED(HttpStatus.BAD_REQUEST, "OAUTH_NOT_CONNECTED", "YouTube 채널이 연동되지 않았습니다"),
+    YOUTUBE_MY_CHANNEL_NOT_FOUND(HttpStatus.NOT_FOUND, "YOUTUBE_MY_CHANNEL_NOT_FOUND", "연동된 YouTube 채널을 찾을 수 없습니다"),
+    TOKEN_ENCRYPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "TOKEN_ENCRYPTION_FAILED", "토큰 처리 중 오류가 발생했습니다");
 
     private final HttpStatus status;
     private final String code;

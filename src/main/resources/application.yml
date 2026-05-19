@@ -26,10 +26,6 @@ spring:
     api-key: ${YOUTUBE_API_KEY}
     base-url: https://www.googleapis.com/youtube/v3
 
-  jwt:
-    secret: ${JWT_SECRET}
-    expiration-ms: 86400000  # 24시간
-
   ai:
     anthropic:
       api-key: ${ANTHROPIC_API_KEY}
@@ -37,6 +33,18 @@ spring:
         options:
           model: claude-haiku-4-5-20251001
           max-tokens: 1024
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-ms: 86400000  # 24시간
+
+google:
+  oauth:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/oauth/youtube/callback}
+    encryption-key: ${GOOGLE_TOKEN_ENCRYPTION_KEY}
+    frontend-redirect-url: ${FRONTEND_URL:http://localhost:3000}
 
 server:
   port: ${PORT:8080}
