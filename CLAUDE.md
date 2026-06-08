@@ -1,4 +1,4 @@
-# 핀넥트 (Finnect) — 유튜브 채널 광고 수익 조각 투자 플랫폼
+# Playstock — 유튜브 채널 광고 수익 조각 투자 플랫폼
 
 ## 프로젝트 한 줄 소개
 일반 투자자가 유튜브 채널의 광고 수익을 조각 단위로 투자하고, 월 배당을 받는 플랫폼.
@@ -58,8 +58,21 @@
 - Zod
 
 ### External
-- YouTube Data API v3
+- YouTube Data API v3 (API 키 — 공개 데이터)
+- YouTube Analytics API (OAuth 2.0 — 실제 수익/CPM/시청시간)
 - Claude API (Spring AI 통해)
+
+### YouTube 연동 방식
+- **크리에이터 채널 연동:** Google OAuth 2.0 (access_type=offline)
+- **Scope:**
+    - `youtube.readonly` — 채널 정보, 영상 목록
+    - `yt-analytics.readonly` — 실제 수익, CPM, 시청시간
+- **MVP:** 테스트 모드 (Google Cloud Console에 테스트 계정 등록 필요)
+- **실서비스:** Google 보안 심사 후 전체 공개
+- **토큰 관리:**
+    - access_token: 1시간 만료 → refresh_token으로 자동 갱신
+    - refresh_token: DB 암호화 저장 (users 테이블)
+    - 주기적 갱신: 매시간 스케줄러로 만료 직전 토큰 갱신
 
 ### 배포
 - Backend: Render (무료 티어, Docker) + UptimeRobot (슬립 방지)
@@ -164,6 +177,10 @@ users
 ├─ password_hash (VARCHAR)
 ├─ role (VARCHAR) — INVESTOR / CREATOR / ADMIN
 ├─ point_balance (BIGINT)
+├─ google_oauth_access_token (TEXT, ENCRYPTED, NULLABLE)   -- 크리에이터만
+├─ google_oauth_refresh_token (TEXT, ENCRYPTED, NULLABLE)  -- 크리에이터만
+├─ google_oauth_token_expires_at (TIMESTAMP, NULLABLE)
+├─ youtube_channel_id (VARCHAR, NULLABLE)                  -- 연동된 채널 ID
 └─ created_at (TIMESTAMP)
 
 channels
@@ -196,6 +213,16 @@ channel_metrics (시계열 누적, 주1회)
 ├─ avg_comments (BIGINT)
 ├─ upload_count_30d (INT)
 ├─ last_upload_at (TIMESTAMP)
+├─ [YouTube Analytics - OAuth로만 수집]
+├─ estimated_revenue (BIGINT)          -- 실제 광고 수익 (원)
+├─ cpm (DECIMAL)                       -- 실제 CPM
+├─ rpm (DECIMAL)                       -- 실제 RPM
+├─ watch_time_minutes (BIGINT)         -- 시청 시간 (분)
+├─ avg_view_duration (INT)             -- 평균 시청 지속 시간 (초)
+├─ impressions (BIGINT)                -- 노출수
+├─ impression_ctr (DECIMAL)            -- 클릭률
+├─ subscribers_gained (INT)            -- 구독자 증가
+├─ subscribers_lost (INT)              -- 구독자 감소
 └─ snapshot_at (TIMESTAMP)
 
 channel_valuations (재평가 시 새 row 추가)

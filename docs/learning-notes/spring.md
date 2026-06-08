@@ -194,3 +194,63 @@ dependencies {
 - `@Valid` + `@NotBlank` 등 유효성 규칙
 
 **기억 포인트:** 어노테이션은 "설명 추가"용. 없어도 기본 문서는 자동 생성됨.
+
+---
+
+## 2026-05-20
+
+### Q. @RequestParam에 이름을 명시하지 않으면 어떻게 되나요?
+
+**A.** Spring은 리플렉션으로 파라미터 이름을 읽으려 시도한다. 컴파일 시 `-parameters` 플래그가 없으면 파라미터 이름이 바이트코드에 포함되지 않아 Spring이 이름을 알 수 없게 된다.
+
+**에러:**
+```
+Name for argument of type [java.lang.String] not specified, and parameter name information
+not available via reflection. Ensure that the compiler uses the '-parameters' flag.
+```
+
+**해결책 1 — 이름 명시 (권장):**
+```java
+// 잘못된 예
+@RequestParam String code
+
+// 올바른 예
+@RequestParam("code") String code
+@RequestParam(value = "error", required = false) String error
+```
+
+**해결책 2 — 빌드 플래그 추가 (build.gradle.kts):**
+```kotlin
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("-parameters")
+}
+```
+
+**기억 포인트:** `@RequestParam`은 항상 이름 명시하는 습관. 플래그 방법은 설정 누락 시 다시 터짐.
+
+---
+
+### Q. application.yml 인덴트 실수로 최상위 블록이 하위 블록으로 묶이는 경우?
+
+**A.** 새 최상위 블록을 추가할 때 기존 항목이 의도치 않게 하위 블록으로 들어가는 실수 패턴.
+
+```yaml
+# 잘못된 예 — jwt가 google 아래로 들어감
+google:
+  oauth:
+    client-id: ...
+  jwt:           # google.jwt가 되어버림
+    secret: ...
+
+# 올바른 예
+google:
+  oauth:
+    client-id: ...
+
+jwt:             # 최상위 독립 블록
+  secret: ...
+```
+
+YAML은 들여쓰기로 계층을 결정하므로, 블록 추가 시 기존 항목의 인덴트가 밀리지 않는지 반드시 확인.
+
+**기억 포인트:** yml 편집 후 `@Value("${jwt.secret}")` 같은 경로로 실제 바인딩 확인. 잘못 묶이면 앱 기동 시 바인딩 에러 발생.
