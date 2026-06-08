@@ -374,6 +374,32 @@ docs/
 2. ADR / learning-note는 Feature Note에서 링크
 3. PR은 코드 변경의 자세한 설명
 
+## PR 작성 스타일
+
+- **톤:** 반말 단문. "붙인다", "추가한다", "변경한다" — "합니다" 체 금지
+- **구조:** 한 줄 배경 → 변경 → 테스트 체크리스트 → 참고(선택)
+- **불필요한 것 제거:** 자명한 코드 설명 X, "의견 주세요" / "확인 부탁" 등 협업 표현 X (1인 레포)
+- **테스트:** 재현 가능한 체크리스트 형식
+- **참고:** 결정이 애매했던 부분만, 질문형 아닌 사실 서술형
+
+예시:
+```
+PR #2에서 JWT 발급까지 됐고, 이번에 실제 검증 필터와 첫 인증 API를 붙인다.
+
+## 변경
+- `JwtAuthenticationFilter`: Bearer 토큰 파싱 → SecurityContext 등록
+- `SecurityConfig`: 필터를 체인에 등록, CORS 환경변수화
+- `GET /users/me`: 인증이 필요한 첫 번째 엔드포인트
+
+## 테스트
+- [ ] `POST /auth/login` 후 토큰으로 `GET /users/me` → 200
+- [ ] 토큰 없이 `GET /users/me` → 403
+- [ ] `./gradlew test` → 5/5 PASS
+
+## 참고
+`UserController`에서 Service 없이 Repository 직접 사용. 조회 로직이 한 줄이라 분리 보류.
+```
+
 ## PR 코드 리뷰
 
 CodeRabbit이 자동으로 PR마다 코드 리뷰 코멘트 작성.
